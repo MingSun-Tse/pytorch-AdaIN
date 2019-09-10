@@ -6,6 +6,7 @@ from function import calc_mean_std
 from torch.utils.serialization import load_lua
 import numpy as np
 
+
 def load_param_from_t7(model, in_layer_index, out_layer):
   out_layer.weight = torch.nn.Parameter(model.get(in_layer_index).weight.float())
   out_layer.bias = torch.nn.Parameter(model.get(in_layer_index).bias.float())
@@ -160,7 +161,71 @@ class Decoder5(nn.Module):
     y = self.relu(self.conv11(self.pad(y)))
     return y
     
+class Encoder4(nn.Module):
+  def __init__(self, model=None, fixed=False):
+    super(Encoder4, self).__init__()
+    self.fixed = fixed
+    self.vgg = nn.Sequential(
+        nn.Conv2d(3, 3, (1, 1)),
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(3, 64, (3, 3)),
+        nn.ReLU(),  # relu1-1
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(64, 64, (3, 3)),
+        nn.ReLU(),  # relu1-2
+        nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(64, 128, (3, 3)),
+        nn.ReLU(),  # relu2-1
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(128, 128, (3, 3)),
+        nn.ReLU(),  # relu2-2
+        nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(128, 256, (3, 3)),
+        nn.ReLU(),  # relu3-1
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(256, 256, (3, 3)),
+        nn.ReLU(),  # relu3-2
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(256, 256, (3, 3)),
+        nn.ReLU(),  # relu3-3
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(256, 256, (3, 3)),
+        nn.ReLU(),  # relu3-4
+        nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(256, 512, (3, 3)),
+        nn.ReLU(),  # relu4-1, this is the last layer used
+    )
     
+    if model:
+      assert(os.path.splitext(model)[1] in {".t7", ".pth"})
+      if model.endswith(".t7"):
+        t7_model = load_lua(model)
+        load_param(t7_model, 0,  self.vgg[0])
+        load_param(t7_model, 2,  self.vgg[2])
+        load_param(t7_model, 5,  self.vgg[5])
+        load_param(t7_model, 9,  self.vgg[9])
+        load_param(t7_model, 12, self.vgg[12])
+        load_param(t7_model, 16, self.vgg[16])
+        load_param(t7_model, 19, self.vgg[19])
+        load_param(t7_model, 22, self.vgg[22])
+        load_param(t7_model, 25, self.vgg[25])
+        load_param(t7_model, 29, self.vgg[29])
+        # print("Given torch model, saving pytorch model")
+        # torch.save(self.state_dict(), os.path.splitext(model)[0] + "_for_adain.pth")
+        # print("Saving done")
+      else:
+        self.load_state_dict(torch.load(model, map_location=lambda storage, location: storage))
+      
+    if fixed:
+      for param in self.parameters():
+          param.requires_grad = False
+          
+  def forward(self, x):
+    return self.vgg(x)
+
 class SmallDecoder5_16x(nn.Module):
   def __init__(self, model=None, fixed=False):
     super(SmallDecoder5_16x, self).__init__()
@@ -286,7 +351,6 @@ class SmallEncoder5_16x_plus(nn.Module):
     y = self.relu(self.conv51(self.pad(y)))
     return y
 
-
 decoder = nn.Sequential(
     nn.ReflectionPad2d((1, 1, 1, 1)),
     nn.Conv2d(512, 256, (3, 3)),
@@ -375,7 +439,6 @@ vgg = nn.Sequential(
     nn.ReLU()  # relu5-4
 )
 
-
 class Net(nn.Module):
     def __init__(self, encoder, decoder):
         super(Net, self).__init__()
@@ -433,4 +496,4 @@ class Net(nn.Module):
         loss_s = self.calc_style_loss(g_t_feats[0], style_feats[0])
         for i in range(1, 4):
             loss_s += self.calc_style_loss(g_t_feats[i], style_feats[i])
-        return loss_c, loss_s
+        return loss_c, loss_s, g_t

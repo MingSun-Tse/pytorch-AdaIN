@@ -9,6 +9,7 @@ from PIL import ImageFile
 from tensorboardX import SummaryWriter
 from torchvision import transforms
 from tqdm import tqdm
+import torchvision.utils as vutils
 
 import net
 from sampler import InfiniteSamplerWrapper
@@ -56,10 +57,8 @@ def adjust_learning_rate(optimizer, iteration_count):
 
 parser = argparse.ArgumentParser()
 # Basic options
-parser.add_argument('--content_dir', type=str, required=True,
-                    help='Directory path to a batch of content images')
-parser.add_argument('--style_dir', type=str, required=True,
-                    help='Directory path to a batch of style images')
+parser.add_argument('--content_dir', type=str, help='Directory path to a batch of content images', default="/home4/wanghuan/Dataset/train2014")
+parser.add_argument('--style_dir', type=str, help='Directory path to a batch of style images', default="/home4/wanghuan/Dataset/WikiArt")
 parser.add_argument('--vgg', type=str, default='models/vgg_normalised.pth')
 
 # training options
@@ -70,10 +69,10 @@ parser.add_argument('--log_dir', default='./logs',
 parser.add_argument('--lr', type=float, default=1e-4)
 parser.add_argument('--lr_decay', type=float, default=5e-5)
 parser.add_argument('--max_iter', type=int, default=160000)
-parser.add_argument('--batch_size', type=int, default=8)
+parser.add_argument('--batch_size', type=int, default=4)
 parser.add_argument('--style_weight', type=float, default=10.0)
 parser.add_argument('--content_weight', type=float, default=1.0)
-parser.add_argument('--n_threads', type=int, default=16)
+parser.add_argument('--n_threads', type=int, default=4)
 parser.add_argument('--save_model_interval', type=int, default=10000)
 args = parser.parse_args()
 
@@ -87,10 +86,13 @@ if not os.path.exists(args.log_dir):
 writer = SummaryWriter(log_dir=args.log_dir)
 
 decoder = net.decoder
-vgg = net.vgg
-
-vgg.load_state_dict(torch.load(args.vgg))
-vgg = nn.Sequential(*list(vgg.children())[:31])
+# --------------------------------------------------------------
+# vgg = net.vgg
+# vgg.load_state_dict(torch.load(args.vgg))
+# vgg = nn.Sequential(*list(vgg.children())[:31])
+args.vgg = "../PytorchWCT/models/vgg_normalised_conv4_1.t7" # note that AdaIN only uses up to Conv4_1 layer
+vgg = net.Encoder4(args.vgg)
+# --------------------------------------------------------------
 network = net.Net(vgg, decoder)
 network.train()
 network.to(device)
@@ -116,7 +118,7 @@ for i in tqdm(range(args.max_iter)):
     adjust_learning_rate(optimizer, iteration_count=i)
     content_images = next(content_iter).to(device)
     style_images = next(style_iter).to(device)
-    loss_c, loss_s = network(content_images, style_images)
+    loss_c, loss_s, stylized_img = network(content_images, style_images)
     loss_c = args.content_weight * loss_c
     loss_s = args.style_weight * loss_s
     loss = loss_c + loss_s
@@ -135,4 +137,9 @@ for i in tqdm(range(args.max_iter)):
         torch.save(state_dict,
                    '{:s}/decoder_iter_{:d}.pth.tar'.format(args.save_dir,
                                                            i + 1))
+    
+    if (i + 1) % 100 == 0: # save image samples
+        path = os.path.join(args.save_dir, "iter_%s.jpg" % (i + 1))
+        vutils.save_image(stylized_img.data.cpu(), path)
+    
 writer.close()
