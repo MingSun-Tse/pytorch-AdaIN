@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=2 python test.py --content ../PytorchWCT/images/Picked_UserStudy_Samples/pair1_content* --style ../PytorchWCT/images/Picked_UserStudy_Samples/pair1_style* -m original

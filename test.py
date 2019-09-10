@@ -11,6 +11,7 @@ from torchvision.utils import save_image
 import net
 from function import adaptive_instance_normalization
 from function import coral
+from net import SmallEncoder5_16x_plus, SmallDecoder5_16x, Encoder5, Decoder5
 
 
 def test_transform(size, crop):
@@ -58,10 +59,10 @@ parser.add_argument('--vgg', type=str, default='models/vgg_normalised.pth')
 parser.add_argument('--decoder', type=str, default='models/decoder.pth')
 
 # Additional options
-parser.add_argument('--content_size', type=int, default=512,
+parser.add_argument('--content_size', type=int, default=3000,
                     help='New (minimum) size for the content image, \
                     keeping the original size if set to 0')
-parser.add_argument('--style_size', type=int, default=512,
+parser.add_argument('--style_size', type=int, default=0,
                     help='New (minimum) size for the style image, \
                     keeping the original size if set to 0')
 parser.add_argument('--crop', action='store_true',
@@ -80,6 +81,7 @@ parser.add_argument('--alpha', type=float, default=1.0,
 parser.add_argument(
     '--style_interpolation_weights', type=str, default='',
     help='The weight for blending the style of multiple style images')
+parser.add_argument('-m', '--mode', type=str)
 
 args = parser.parse_args()
 
@@ -115,15 +117,28 @@ else:
 if not os.path.exists(args.output):
     os.mkdir(args.output)
 
-decoder = net.decoder
-vgg = net.vgg
+##---------------------------------------------
+# decoder = net.decoder
+# vgg = net.vgg
 
-decoder.eval()
-vgg.eval()
+# decoder.eval()
+# vgg.eval()
 
-decoder.load_state_dict(torch.load(args.decoder))
-vgg.load_state_dict(torch.load(args.vgg))
-vgg = nn.Sequential(*list(vgg.children())[:31])
+# decoder.load_state_dict(torch.load(args.decoder))
+# vgg.load_state_dict(torch.load(args.vgg))
+# vgg = nn.Sequential(*list(vgg.children())[:31])
+
+if args.mode == "16x":
+  args.decoder = "../Experiments/d5_ploss0.01_conv12345_QA/weights/12-20190131-0539_5SD_16x_E20S10000-3.pth"
+  args.vgg = "../Experiments/e5_ploss0.05_conv12345_QA/weights/12-20181105-1644_5SE_16x_QA_E20S10000-2.pth"
+  decoder = SmallDecoder5_16x(args.decoder)
+  vgg = SmallEncoder5_16x_plus(args.vgg)
+elif args.mode == "original":
+  args.decoder = "../PytorchWCT/models/feature_invertor_conv5_1.t7"
+  args.vgg = "../PytorchWCT/models/vgg_normalised_conv5_1.t7"
+  decoder = Decoder5(args.decoder)
+  vgg = Encoder5(args.vgg)
+##---------------------------------------------
 
 vgg.to(device)
 decoder.to(device)
@@ -159,8 +174,8 @@ for content_path in content_paths:
                                         args.alpha)
             output = output.cpu()
 
-            output_name = '{:s}/{:s}_stylized_{:s}{:s}'.format(
+            output_name = '{:s}/{:s}_stylized_{:s}_{:s}{:s}'.format(
                 args.output, splitext(basename(content_path))[0],
-                splitext(basename(style_path))[0], args.save_ext
+                splitext(basename(style_path))[0], args.mode, args.save_ext,
             )
             save_image(output, output_name)
