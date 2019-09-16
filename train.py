@@ -64,17 +64,18 @@ parser.add_argument('--vgg', type=str, default='models/vgg_normalised.pth')
 # training options
 parser.add_argument('--save_dir', default='./experiments',
                     help='Directory to save the model')
-parser.add_argument('--log_dir', default='./logs',
-                    help='Directory to save the log')
+# parser.add_argument('--log_dir', default='./logs',
+                    # help='Directory to save the log')
 parser.add_argument('--lr', type=float, default=1e-4)
 parser.add_argument('--lr_decay', type=float, default=5e-5)
 parser.add_argument('--max_iter', type=int, default=160000)
-parser.add_argument('--batch_size', type=int, default=4)
+parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--style_weight', type=float, default=10.0)
 parser.add_argument('--content_weight', type=float, default=1.0)
 parser.add_argument('--n_threads', type=int, default=4)
 parser.add_argument('--save_model_interval', type=int, default=10000)
 args = parser.parse_args()
+args.log_dir = args.save_dir
 
 device = torch.device('cuda')
 
@@ -85,13 +86,24 @@ if not os.path.exists(args.log_dir):
     os.mkdir(args.log_dir)
 writer = SummaryWriter(log_dir=args.log_dir)
 
-decoder = net.decoder
+# # use my SE model
+# decoder = net.SmallDecoder4_16x()
+# args.vgg = "../Experiments/e4_ploss0.05_conv1234_QA/weights/192-20181114-0458_4SE_16x_QA_E20S10000-2.pth"
+# vgg = net.SmallEncoder4_16x_plus(args.vgg, fixed=True)
+
+# 2019/09/15 exp
+# encoder: VGG19 up to Conv4_2. train its decoder
+decoder = net.Decoder4_2()
+args.vgg = "../PytorchWCT/models/vgg_normalised_conv5_1.t7" # use conv5_1 to include conv4_2
+vgg = net.Encoder4_2(args.vgg, fixed=True)
+
 # --------------------------------------------------------------
+# decoder = net.decoder
 # vgg = net.vgg
 # vgg.load_state_dict(torch.load(args.vgg))
 # vgg = nn.Sequential(*list(vgg.children())[:31])
-args.vgg = "../PytorchWCT/models/vgg_normalised_conv4_1.t7" # note that AdaIN only uses up to Conv4_1 layer
-vgg = net.Encoder4(args.vgg)
+# args.vgg = "../PytorchWCT/models/vgg_normalised_conv4_1.t7" # note that AdaIN only uses up to Conv4_1 layer
+# vgg = net.Encoder4(args.vgg)
 # --------------------------------------------------------------
 network = net.Net(vgg, decoder)
 network.train()
@@ -139,7 +151,7 @@ for i in tqdm(range(args.max_iter)):
                                                            i + 1))
     
     if (i + 1) % 100 == 0: # save image samples
-        path = os.path.join(args.save_dir, "iter_%s.jpg" % (i + 1))
+        path = os.path.join(args.save_dir, "%s_iter_%s.jpg" % (args.save_dir, i+1))
         vutils.save_image(stylized_img.data.cpu(), path)
     
 writer.close()
