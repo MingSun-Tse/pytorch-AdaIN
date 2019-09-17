@@ -59,9 +59,6 @@ class Encoder5(nn.Module):
         load_param(t7_model, 35, self.conv43)
         load_param(t7_model, 38, self.conv44)
         load_param(t7_model, 42, self.conv51)
-        # print("Given torch model, saving pytorch model")
-        # torch.save(self.state_dict(), os.path.splitext(model)[0] + ".pth")
-        # print("Saving done")
       else:
         self.load_state_dict(torch.load(model, map_location=lambda storage, location: storage))
       
@@ -168,37 +165,37 @@ class Encoder4_2(nn.Module):
         nn.Conv2d(3, 3, (1, 1)),
         nn.ReflectionPad2d((1, 1, 1, 1)),
         nn.Conv2d(3, 64, (3, 3)),
-        nn.ReLU(),  # relu1-1
+        nn.ReLU(),  # relu1-1 # 3
         nn.ReflectionPad2d((1, 1, 1, 1)),
         nn.Conv2d(64, 64, (3, 3)),
-        nn.ReLU(),  # relu1-2
+        nn.ReLU(),  # relu1-2 # 6
         nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
         nn.ReflectionPad2d((1, 1, 1, 1)),
         nn.Conv2d(64, 128, (3, 3)),
-        nn.ReLU(),  # relu2-1
+        nn.ReLU(),  # relu2-1 # 10
         nn.ReflectionPad2d((1, 1, 1, 1)),
         nn.Conv2d(128, 128, (3, 3)),
-        nn.ReLU(),  # relu2-2
+        nn.ReLU(),  # relu2-2 # 13
         nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
         nn.ReflectionPad2d((1, 1, 1, 1)),
         nn.Conv2d(128, 256, (3, 3)),
-        nn.ReLU(),  # relu3-1
+        nn.ReLU(),  # relu3-1 # 17
         nn.ReflectionPad2d((1, 1, 1, 1)),
         nn.Conv2d(256, 256, (3, 3)),
-        nn.ReLU(),  # relu3-2
+        nn.ReLU(),  # relu3-2 # 20
         nn.ReflectionPad2d((1, 1, 1, 1)),
         nn.Conv2d(256, 256, (3, 3)),
-        nn.ReLU(),  # relu3-3
+        nn.ReLU(),  # relu3-3 # 23
         nn.ReflectionPad2d((1, 1, 1, 1)),
         nn.Conv2d(256, 256, (3, 3)),
-        nn.ReLU(),  # relu3-4
+        nn.ReLU(),  # relu3-4 # 26
         nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
         nn.ReflectionPad2d((1, 1, 1, 1)),
         nn.Conv2d(256, 512, (3, 3)),
-        nn.ReLU(),  # relu4-1, this is the last layer used
+        nn.ReLU(),  # relu4-1 # 30
         nn.ReflectionPad2d((1, 1, 1, 1)),
         nn.Conv2d(512, 512, (3, 3)),
-        nn.ReLU(),  # relu4-2
+        nn.ReLU(),  # relu4-2 # 33
     )
     if model:
       assert(os.path.splitext(model)[1] in {".t7", ".pth"})
@@ -227,6 +224,12 @@ class Encoder4_2(nn.Module):
           i += 1
   def forward(self, x):
     return self.vgg(x)
+  def forward_branch(self, x):
+    y_relu1_1 = self.vgg[  : 4](x)
+    y_relu2_1 = self.vgg[ 4:11](x)
+    y_relu3_1 = self.vgg[11:18](x)
+    y_relu4_1 = self.vgg[18:31](x)
+    return y_relu1_1, y_relu2_1, y_relu3_1, y_relu4_1
 
 class Decoder4_2(nn.Module):
   def __init__(self, model=None, fixed=False):
@@ -265,9 +268,6 @@ class Decoder4_2(nn.Module):
         load_param(t7_model, 34, self.conv21)
         load_param(t7_model, 38, self.conv12)
         load_param(t7_model, 41, self.conv11)
-        print("Given torch model, saving pytorch model")
-        torch.save(self.state_dict(), os.path.splitext(model)[0] + ".pth")
-        print("Saving done")
       else:
         self.load_state_dict(torch.load(model, map_location=lambda storage, location: storage))
     
@@ -290,6 +290,50 @@ class Decoder4_2(nn.Module):
     y = self.relu(self.conv12(self.pad(y)))
     y = self.relu(self.conv11(self.pad(y)))
     return y
+
+class SmallEncoder4_2(nn.Module):
+  def __init__(self, model=None):
+    super(SmallEncoder4_2, self).__init__()
+    self.vgg = nn.Sequential(
+        nn.Conv2d(3, 3, (1, 1)),
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(3, 16, (3, 3)),
+        nn.ReLU(),  # relu1-1 # 3
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(16, 16, (3, 3)),
+        nn.ReLU(),  # relu1-2 # 6
+        nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(16, 32, (3, 3)),
+        nn.ReLU(),  # relu2-1 # 10
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(32, 32, (3, 3)),
+        nn.ReLU(),  # relu2-2 # 13
+        nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(32, 64, (3, 3)),
+        nn.ReLU(),  # relu3-1 # 17
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(64, 64, (3, 3)),
+        nn.ReLU(),  # relu3-2 # 20
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(64, 64, (3, 3)),
+        nn.ReLU(),  # relu3-3 # 23
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(64, 64, (3, 3)),
+        nn.ReLU(),  # relu3-4 # 26
+        nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(64, 128, (3, 3)),
+        nn.ReLU(),  # relu4-1 # 30
+        nn.ReflectionPad2d((1, 1, 1, 1)),
+        nn.Conv2d(128, 512, (3, 3)),
+        nn.ReLU(),  # relu4-2 # 33
+    )
+    if model:
+      self.load_state_dict(torch.load(model, map_location=lambda storage, location: storage))
+  def forward(self, x):
+    return self.vgg(x)
     
 class Encoder4(nn.Module):
   def __init__(self, model=None, fixed=False):
@@ -450,8 +494,6 @@ class SmallDecoder4_16x(nn.Module):
     y = self.relu(self.conv12(self.pad(y)))
     y = self.conv11(self.pad(y))
     return y
-
-
 
 decoder = nn.Sequential(
     nn.ReflectionPad2d((1, 1, 1, 1)),
