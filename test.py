@@ -126,16 +126,17 @@ if not os.path.exists(args.output):
 # vgg.load_state_dict(torch.load(args.vgg))
 # vgg = nn.Sequential(*list(vgg.children())[:31])
 
-if args.mode == "16x":
-  args.decoder = "../Experiments/d5_ploss0.01_conv12345_QA/weights/12-20190131-0539_5SD_16x_E20S10000-3.pth"
-  args.vgg = "../Experiments/e5_ploss0.05_conv12345_QA/weights/12-20181105-1644_5SE_16x_QA_E20S10000-2.pth"
-  decoder = net.SmallDecoder5_16x(args.decoder)
-  vgg = net.SmallEncoder5_16x_plus(args.vgg)
-elif args.mode == "original":
-  args.decoder = "../PytorchWCT/models/feature_invertor_conv5_1.t7"
-  args.vgg = "../PytorchWCT/models/vgg_normalised_conv5_1.t7"
-  decoder = net.Decoder5(args.decoder)
-  vgg = net.Encoder5(args.vgg)
+# 2019/01 rebuttal
+# if args.mode == "16x":
+  # args.decoder = "../Experiments/d5_ploss0.01_conv12345_QA/weights/12-20190131-0539_5SD_16x_E20S10000-3.pth"
+  # args.vgg = "../Experiments/e5_ploss0.05_conv12345_QA/weights/12-20181105-1644_5SE_16x_QA_E20S10000-2.pth"
+  # decoder = net.SmallDecoder5_16x(args.decoder)
+  # vgg = net.SmallEncoder5_16x_plus(args.vgg)
+# elif args.mode == "original":
+  # args.decoder = "../PytorchWCT/models/feature_invertor_conv5_1.t7"
+  # args.vgg = "../PytorchWCT/models/vgg_normalised_conv5_1.t7"
+  # decoder = net.Decoder5(args.decoder)
+  # vgg = net.Encoder5(args.vgg)
 ##---------------------------------------------
 
 vgg.to(device)

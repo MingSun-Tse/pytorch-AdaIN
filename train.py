@@ -13,6 +13,7 @@ import torchvision.utils as vutils
 
 import net
 from sampler import InfiniteSamplerWrapper
+from model import SmallEncoder4_2
 
 cudnn.benchmark = True
 Image.MAX_IMAGE_PIXELS = None  # Disable DecompressionBombError
@@ -57,8 +58,8 @@ def adjust_learning_rate(optimizer, iteration_count):
 
 parser = argparse.ArgumentParser()
 # Basic options
-parser.add_argument('--content_dir', type=str, help='Directory path to a batch of content images', default="/home4/wanghuan/Dataset/train2014")
-parser.add_argument('--style_dir', type=str, help='Directory path to a batch of style images', default="/home4/wanghuan/Dataset/WikiArt")
+parser.add_argument('--content_dir', type=str, help='Directory path to a batch of content images', default="/home4/wanghuan/Dataset/train2014/")
+parser.add_argument('--style_dir', type=str, help='Directory path to a batch of style images', default="/home4/wanghuan/Dataset/WikiArt_train/")
 parser.add_argument('--vgg', type=str, default='models/vgg_normalised.pth')
 
 # training options
@@ -86,22 +87,28 @@ if not os.path.exists(args.log_dir):
     os.mkdir(args.log_dir)
 writer = SummaryWriter(log_dir=args.log_dir)
 
-# # use my SE model
-# decoder = net.SmallDecoder4_16x()
-# args.vgg = "../Experiments/e4_ploss0.05_conv1234_QA/weights/192-20181114-0458_4SE_16x_QA_E20S10000-2.pth"
-# vgg = net.SmallEncoder4_16x_plus(args.vgg, fixed=True)
+# --------------------------------------------------------------
+# # use my previous SE model
+decoder = net.SmallDecoder4_16x()
+args.vgg = "../Experiments/e4_ploss0.05_conv1234_QA/weights/192-20181114-0458_4SE_16x_QA_E20S10000-2.pth"
+vgg = net.SmallEncoder4_16x_plus(args.vgg, fixed=True)
 
 # 2019/09/15 exp
 # encoder: VGG19 up to Conv4_2. train its decoder
-decoder = net.Decoder4_2()
-args.vgg = "../PytorchWCT/models/vgg_normalised_conv5_1.t7" # use conv5_1 to include conv4_2
-vgg = net.Encoder4_2(args.vgg, fixed=True)
+# decoder = net.Decoder4_2()
+# args.vgg = "../PytorchWCT/models/vgg_normalised_conv5_1.t7" # use conv5_1 to include conv4_2
+# vgg = net.Encoder4_2(args.vgg, fixed=True)
 
-# --------------------------------------------------------------
+# train my new SD model, 2019/09/22 exp
+# decoder = net.SmallDecoder4_16x()
+# SE_path = "../Experiments/SERVER218-20190925-034318_SE/weights/20190925-034318_E20.pth"
+# vgg = SmallEncoder4_2(SE_path, fixed=True).vgg[:31]
+
+# # original VGG19
 # decoder = net.decoder
-# vgg = net.vgg
-# vgg.load_state_dict(torch.load(args.vgg))
-# vgg = nn.Sequential(*list(vgg.children())[:31])
+# # vgg = net.vgg # wh: do not use their VGG, use mine
+# # vgg.load_state_dict(torch.load(args.vgg))
+# # vgg = nn.Sequential(*list(vgg.children())[:31])
 # args.vgg = "../PytorchWCT/models/vgg_normalised_conv4_1.t7" # note that AdaIN only uses up to Conv4_1 layer
 # vgg = net.Encoder4(args.vgg)
 # --------------------------------------------------------------
@@ -151,7 +158,8 @@ for i in tqdm(range(args.max_iter)):
                                                            i + 1))
     
     if (i + 1) % 100 == 0: # save image samples
+        save_img = torch.cat([content_images, style_images, stylized_img], dim=0)
         path = os.path.join(args.save_dir, "%s_iter_%s.jpg" % (args.save_dir, i+1))
-        vutils.save_image(stylized_img.data.cpu(), path)
+        vutils.save_image(save_img, path, nrow=args.batch_size)
     
 writer.close()

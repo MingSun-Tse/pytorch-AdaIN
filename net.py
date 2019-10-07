@@ -625,6 +625,7 @@ class TransformDecoder4(nn.Module):
     y = self.conv11(self.pad(y))
     return y
 
+LOG = open("mean_activation_check_log.txt", "w+")
 class Net(nn.Module):
     def __init__(self, encoder, decoder):
         super(Net, self).__init__()
@@ -648,6 +649,13 @@ class Net(nn.Module):
         for i in range(4):
             func = getattr(self, 'enc_{:d}'.format(i + 1))
             results.append(func(results[-1]))
+        
+        # # 2019/10/06 check the mean activation ---
+        # for f in results:
+          # print("%.3f" % torch.mean(f), end="  ", file=LOG, flush=True)
+        # print("", file=LOG, flush=True)
+        # # ---
+        
         return results[1:]
 
     # extract relu4_1 from input image
@@ -676,10 +684,10 @@ class Net(nn.Module):
         
         ## original
         t = adain(content_feat, style_feats[-1])
-        t = alpha * t + (1 - alpha) * content_feat #wh: stylized feature
+        t = alpha * t + (1 - alpha) * content_feat
         g_t = self.decoder(t)
         g_t_feats = self.encode_with_intermediate(g_t)
-        loss_c = self.calc_content_loss(g_t_feats[-1], t) #?????
+        loss_c = self.calc_content_loss(g_t_feats[-1], t) # ?? why t, not content_feat
         
         ## mine
         '''
