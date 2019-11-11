@@ -13,7 +13,8 @@ import torchvision.utils as vutils
 
 import net
 from sampler import InfiniteSamplerWrapper
-from model import SmallEncoder4_2
+from model import SmallEncoder4_2, SmallEncoder4_2_4x
+from data_loader import Dataset_npy
 
 cudnn.benchmark = True
 Image.MAX_IMAGE_PIXELS = None  # Disable DecompressionBombError
@@ -58,8 +59,10 @@ def adjust_learning_rate(optimizer, iteration_count):
 
 parser = argparse.ArgumentParser()
 # Basic options
-parser.add_argument('--content_dir', type=str, help='Directory path to a batch of content images', default="/home4/wanghuan/Dataset/train2014/")
-parser.add_argument('--style_dir', type=str, help='Directory path to a batch of style images', default="/home4/wanghuan/Dataset/WikiArt_train/")
+parser.add_argument('--content_dir', type=str, help='Directory path to a batch of content images', default="../../../Dataset/COCO/train2014")
+parser.add_argument('--style_dir', type=str, help='Directory path to a batch of style images', default="../../../Dataset/WikiArt/train")
+parser.add_argument('--content_dir_npy', type=str, help='Directory path to a batch of style images', default="../../../Dataset/COCO/train2014_npy")
+parser.add_argument('--style_dir_npy', type=str, help='Directory path to a batch of style images', default="../../../Dataset/WikiArt/train_npy")
 parser.add_argument('--vgg', type=str, default='models/vgg_normalised.pth')
 
 # training options
@@ -89,9 +92,9 @@ writer = SummaryWriter(log_dir=args.log_dir)
 
 # --------------------------------------------------------------
 # # use my previous SE model
-decoder = net.SmallDecoder4_16x()
-args.vgg = "../Experiments/e4_ploss0.05_conv1234_QA/weights/192-20181114-0458_4SE_16x_QA_E20S10000-2.pth"
-vgg = net.SmallEncoder4_16x_plus(args.vgg, fixed=True)
+# decoder = net.SmallDecoder4_16x()
+# args.vgg = "../Experiments/e4_ploss0.05_conv1234_QA/weights/192-20181114-0458_4SE_16x_QA_E20S10000-2.pth"
+# vgg = net.SmallEncoder4_16x_plus(args.vgg, fixed=True)
 
 # 2019/09/15 exp
 # encoder: VGG19 up to Conv4_2. train its decoder
@@ -100,9 +103,9 @@ vgg = net.SmallEncoder4_16x_plus(args.vgg, fixed=True)
 # vgg = net.Encoder4_2(args.vgg, fixed=True)
 
 # train my new SD model, 2019/09/22 exp
-# decoder = net.SmallDecoder4_16x()
-# SE_path = "../Experiments/SERVER218-20190925-034318_SE/weights/20190925-034318_E20.pth"
-# vgg = SmallEncoder4_2(SE_path, fixed=True).vgg[:31]
+decoder = net.SmallDecoder4_16x()
+SE_path = "../Bin/Experiments/SERVER138-20191109-092157_run/weights/20191109-092157_E20.pth"
+vgg = SmallEncoder4_2_4x(SE_path, fixed=True).vgg[:31]
 
 # # original VGG19
 # decoder = net.decoder
@@ -121,6 +124,9 @@ style_tf = train_transform()
 
 content_dataset = FlatFolderDataset(args.content_dir, content_tf)
 style_dataset = FlatFolderDataset(args.style_dir, style_tf)
+# content_dataset = Dataset_npy(args.content_dir_npy)
+# style_dataset = Dataset_npy(args.style_dir_npy)
+
 
 content_iter = iter(data.DataLoader(
     content_dataset, batch_size=args.batch_size,
