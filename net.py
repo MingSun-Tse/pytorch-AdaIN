@@ -3,7 +3,7 @@ import torch
 import os
 from function import adaptive_instance_normalization as adain
 from function import calc_mean_std
-from torch.utils.serialization import load_lua
+# from torch.utils.serialization import load_lua 
 import numpy as np
 
 def load_param_from_t7(model, in_layer_index, out_layer):

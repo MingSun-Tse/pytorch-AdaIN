@@ -13,7 +13,7 @@ import torchvision.utils as vutils
 
 import net
 from sampler import InfiniteSamplerWrapper
-from model import SmallEncoder4_2, SmallEncoder4_2_4x
+from model import SmallEncoder4_2, SmallEncoder4_2_4x, SmallDecoder4_4x
 from data_loader import Dataset_npy
 
 cudnn.benchmark = True
@@ -102,10 +102,10 @@ writer = SummaryWriter(log_dir=args.log_dir)
 # args.vgg = "../PytorchWCT/models/vgg_normalised_conv5_1.t7" # use conv5_1 to include conv4_2
 # vgg = net.Encoder4_2(args.vgg, fixed=True)
 
-# train my new SD model, 2019/09/22 exp
-decoder = net.SmallDecoder4_16x()
+# train my new SD model
+decoder = SmallDecoder4_4x()
 SE_path = "../Bin/Experiments/SERVER138-20191109-092157_run/weights/20191109-092157_E20.pth"
-vgg = SmallEncoder4_2_4x(SE_path, fixed=True).vgg[:31]
+vgg = SmallEncoder4_2_4x(SE_path, fixed=True).vgg[:31] 
 
 # # original VGG19
 # decoder = net.decoder
