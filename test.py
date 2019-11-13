@@ -11,6 +11,8 @@ from torchvision.utils import save_image
 import net
 from function import adaptive_instance_normalization
 from function import coral
+from model import Encoder4_2, SmallDecoder4_4x, SmallEncoder4_2_4x, Decoder4_2
+from model import SmallEncoder4_64x_aux, SmallEncoder4_16x_aux
 
 def test_transform(size, crop):
     transform_list = []
@@ -26,8 +28,12 @@ def test_transform(size, crop):
 def style_transfer(vgg, decoder, content, style, alpha=1.0,
                    interpolation_weights=None):
     assert (0.0 <= alpha <= 1.0)
-    content_f = vgg(content)
-    style_f = vgg(style)
+    if args.mode in ["SE64x+BD", "SE16x+BD", "E2D1"]:
+      content_f = vgg.forward_aux(content, False)[-1]
+      style_f = vgg.forward_aux(style, False)[-1]
+    else:
+      content_f = vgg(content)
+      style_f = vgg(style)
     if interpolation_weights:
         _, C, H, W = content_f.size()
         feat = torch.FloatTensor(1, C, H, W).zero_().to(device)
@@ -57,7 +63,7 @@ parser.add_argument('--vgg', type=str, default='models/vgg_normalised.pth')
 parser.add_argument('--decoder', type=str, default='models/decoder.pth')
 
 # Additional options
-parser.add_argument('--content_size', type=int, default=3000,
+parser.add_argument('--content_size', type=int, default=512,
                     help='New (minimum) size for the content image, \
                     keeping the original size if set to 0')
 parser.add_argument('--style_size', type=int, default=0,
@@ -116,17 +122,29 @@ if not os.path.exists(args.output):
     os.mkdir(args.output)
 
 ##---------------------------------------------
-# decoder = net.decoder
-# vgg = net.vgg
+# use converted decoder from .t7 model
+if args.mode == "original": 
+  decoder = net.decoder
+  vgg = net.vgg
+  decoder.eval()
+  vgg.eval()
+  decoder.load_state_dict(torch.load(args.decoder))
+  vgg.load_state_dict(torch.load(args.vgg))
+  vgg = nn.Sequential(*list(vgg.children())[:31])
 
-# decoder.eval()
-# vgg.eval()
-
-# decoder.load_state_dict(torch.load(args.decoder))
-# vgg.load_state_dict(torch.load(args.vgg))
-# vgg = nn.Sequential(*list(vgg.children())[:31])
-
-# 2019/01 rebuttal
+# this decoder is trained by the author using this code
+if args.mode == "original2":
+  decoder = net.decoder
+  vgg = net.vgg
+  decoder.eval()
+  vgg.eval()
+  decoder.load_state_dict(torch.load("decoder_iter_160000.pth.tar"))
+  vgg.load_state_dict(torch.load(args.vgg))
+  vgg = nn.Sequential(*list(vgg.children())[:31])
+  
+##########################################
+# Note: this rebuttal running is wrong, since the decoder is not trained by AdaIN, just the decoder of WCT.
+# # 2019/01 rebuttal
 # if args.mode == "16x":
   # args.decoder = "../Experiments/d5_ploss0.01_conv12345_QA/weights/12-20190131-0539_5SD_16x_E20S10000-3.pth"
   # args.vgg = "../Experiments/e5_ploss0.05_conv12345_QA/weights/12-20181105-1644_5SE_16x_QA_E20S10000-2.pth"
@@ -137,6 +155,62 @@ if not os.path.exists(args.output):
   # args.vgg = "../PytorchWCT/models/vgg_normalised_conv5_1.t7"
   # decoder = net.Decoder5(args.decoder)
   # vgg = net.Encoder5(args.vgg)
+##########################################
+if args.mode == "BE4_2+BD4_2": # my trained Conv4_2 BE and BD
+  args.decoder = "experiments_Decoder4_2/decoder_iter_160000.pth.tar"
+  args.vgg = "../PytorchWCT/models/vgg_normalised_conv5_1.t7"
+  decoder = Decoder4_2(args.decoder)
+  vgg = Encoder4_2(args.vgg).vgg
+
+if args.mode == "SE4x+BD4_2":
+  args.decoder = "experiments_Decoder4_2/decoder_iter_160000.pth.tar" # BD
+  decoder = Decoder4_2(args.decoder)
+  args.vgg = "../Bin/Experiments/SERVER138-20191109-092157_run/weights/20191109-092157_E20.pth" # SE4x
+  vgg = SmallEncoder4_2_4x(args.vgg).vgg
+
+if args.mode == "SE64x+BD":
+  args.decoder = "decoder_iter_160000.pth.tar" # BD
+  decoder = net.decoder
+  decoder.load_state_dict(torch.load(args.decoder))
+  args.vgg = "../Bin/Experiments/SERVER138-20191112-012212_adain_64x_se/weights/20191112-012212_E18.pth" # SE64x
+  vgg = SmallEncoder4_64x_aux(args.vgg)
+  
+if args.mode == "SE16x+BD":
+  args.decoder = "decoder_iter_160000.pth.tar" # BD
+  decoder = net.decoder
+  decoder.load_state_dict(torch.load(args.decoder))
+  args.vgg = "../Bin/Experiments/SERVER138-20191112-012137_adain_16x_se/weights/20191112-012137_E17.pth" # SE16x
+  vgg = SmallEncoder4_16x_aux(args.vgg)
+  
+if args.mode == "SE+SD":
+  args.decoder = "experiments_sd_4x/decoder_iter_160000.pth.tar" # 4x SD
+  decoder = SmallDecoder4_4x(args.decoder)
+  args.vgg = "../Bin/Experiments/SERVER138-20191109-092157_run/weights/20191109-092157_E20.pth" # SE
+  vgg = SmallEncoder4_2_4x(args.vgg).vgg[:31] # 31 is relu4_1
+
+# Demonstrate the collaboration phenomenon
+# E1 = SE4x, D1 = Decoder4_2
+# E2 = SE16x, D2 = decoder_iter_160000.pth.tar
+if args.mode == "E1D2":
+  args.vgg = "../Bin/Experiments/SERVER138-20191109-092157_run/weights/20191109-092157_E20.pth" # SE4x
+  vgg = SmallEncoder4_2_4x(args.vgg).vgg
+  args.decoder = "decoder_iter_160000.pth.tar" # BD
+  decoder = net.decoder
+  decoder.load_state_dict(torch.load(args.decoder))
+  
+if args.mode == "E2D1":
+  args.vgg = "../Bin/Experiments/SERVER138-20191112-012137_adain_16x_se/weights/20191112-012137_E17.pth" # SE16x
+  vgg = SmallEncoder4_16x_aux(args.vgg)
+  args.decoder = "experiments_Decoder4_2/decoder_iter_160000.pth.tar"
+  decoder = Decoder4_2(args.decoder)
+  
+if args.mode == "E1D1":
+  pass # this is the same as "SE4x+BD4_2"
+
+if args.mode == "E2D2":
+  pass # this is the same as "SE16x+BD"
+
+
 ##---------------------------------------------
 
 vgg.to(device)

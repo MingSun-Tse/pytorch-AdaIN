@@ -13,7 +13,7 @@ import torchvision.utils as vutils
 
 import net
 from sampler import InfiniteSamplerWrapper
-from model import SmallEncoder4_2, SmallEncoder4_2_4x, SmallDecoder4_4x
+from model import SmallEncoder4_2, SmallEncoder4_2_4x, SmallDecoder4_4x # SmallEncoder4_2 is 16x
 from data_loader import Dataset_npy
 
 cudnn.benchmark = True
