@@ -12,7 +12,7 @@ import net
 from function import adaptive_instance_normalization
 from function import coral
 from model import Encoder4_2, SmallDecoder4_4x, SmallEncoder4_2_4x, Decoder4_2
-from model import SmallEncoder4_64x_aux, SmallEncoder4_16x_aux
+from model import SmallEncoder4_64x_aux, SmallEncoder4_16x_aux, SmallEncoder4_FP16x_aux
 
 def test_transform(size, crop):
     transform_list = []
@@ -174,19 +174,26 @@ if args.mode == "SE64x+BD":
   decoder.load_state_dict(torch.load(args.decoder))
   args.vgg = "../Bin/Experiments/SERVER138-20191112-012212_adain_64x_se/weights/20191112-012212_E18.pth" # SE64x
   vgg = SmallEncoder4_64x_aux(args.vgg)
-  
+
 if args.mode == "SE16x+BD":
   args.decoder = "decoder_iter_160000.pth.tar" # BD
   decoder = net.decoder
   decoder.load_state_dict(torch.load(args.decoder))
   args.vgg = "../Bin/Experiments/SERVER138-20191112-012137_adain_16x_se/weights/20191112-012137_E17.pth" # SE16x
   vgg = SmallEncoder4_16x_aux(args.vgg)
-  
+
 if args.mode == "SE+SD":
   args.decoder = "experiments_sd_4x/decoder_iter_160000.pth.tar" # 4x SD
   decoder = SmallDecoder4_4x(args.decoder)
   args.vgg = "../Bin/Experiments/SERVER138-20191109-092157_run/weights/20191109-092157_E20.pth" # SE
   vgg = SmallEncoder4_2_4x(args.vgg).vgg[:31] # 31 is relu4_1
+
+if args.mode == "FP_SE16x+BD":
+  decoder_path = "FP_SE16x+BD/decoder_iter_160000.pth.tar"
+  decoder = net.decoder
+  decoder.load_state_dict(torch.load(decoder_path))
+  args.vgg = "../Bin/models/normalise_fp16x/fp16x_normalised_FP16x_4E_for_adain.pth"
+  vgg = SmallEncoder4_FP16x_aux(args.vgg).vgg
 
 # Demonstrate the collaboration phenomenon
 # E1 = SE4x, D1 = Decoder4_2
@@ -197,20 +204,18 @@ if args.mode == "E1D2":
   args.decoder = "decoder_iter_160000.pth.tar" # BD
   decoder = net.decoder
   decoder.load_state_dict(torch.load(args.decoder))
-  
+
 if args.mode == "E2D1":
   args.vgg = "../Bin/Experiments/SERVER138-20191112-012137_adain_16x_se/weights/20191112-012137_E17.pth" # SE16x
   vgg = SmallEncoder4_16x_aux(args.vgg)
   args.decoder = "experiments_Decoder4_2/decoder_iter_160000.pth.tar"
   decoder = Decoder4_2(args.decoder)
-  
+
 if args.mode == "E1D1":
   pass # this is the same as "SE4x+BD4_2"
 
 if args.mode == "E2D2":
   pass # this is the same as "SE16x+BD"
-
-
 ##---------------------------------------------
 
 vgg.to(device)
