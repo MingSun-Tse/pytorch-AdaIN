@@ -14,6 +14,7 @@ import torchvision.utils as vutils
 import net
 from sampler import InfiniteSamplerWrapper
 from model import SmallEncoder4_2, SmallEncoder4_2_4x, SmallDecoder4_4x # SmallEncoder4_2 is 16x
+from model import SmallEncoder4_FP16x_aux
 from data_loader import Dataset_npy
 
 cudnn.benchmark = True
@@ -94,26 +95,29 @@ writer = SummaryWriter(log_dir=args.log_dir)
 # # use my previous SE model
 # decoder = net.SmallDecoder4_16x()
 # args.vgg = "../Experiments/e4_ploss0.05_conv1234_QA/weights/192-20181114-0458_4SE_16x_QA_E20S10000-2.pth"
-# vgg = net.SmallEncoder4_16x_plus(args.vgg, fixed=True)
+# vgg = net.SmallEncoder4_16x_aux(args.vgg, fixed=True)
 
-# 2019/09/15 exp
+# 2019-09-15
 # encoder: VGG19 up to Conv4_2. train its decoder
 # decoder = net.Decoder4_2()
 # args.vgg = "../PytorchWCT/models/vgg_normalised_conv5_1.t7" # use conv5_1 to include conv4_2
 # vgg = net.Encoder4_2(args.vgg, fixed=True)
 
-# train my new SD model
-decoder = SmallDecoder4_4x()
-SE_path = "../Bin/Experiments/SERVER138-20191109-092157_run/weights/20191109-092157_E20.pth"
-vgg = SmallEncoder4_2_4x(SE_path, fixed=True).vgg[:31] 
+# # train my new SD model
+# decoder = SmallDecoder4_4x()
+# SE_path = "../Bin/Experiments/SERVER138-20191109-092157_run/weights/20191109-092157_E20.pth"
+# vgg = SmallEncoder4_2_4x(SE_path, fixed=True).vgg[:31] 
 
-# # original VGG19
+# original VGG19
 # decoder = net.decoder
-# # vgg = net.vgg # wh: do not use their VGG, use mine
-# # vgg.load_state_dict(torch.load(args.vgg))
-# # vgg = nn.Sequential(*list(vgg.children())[:31])
-# args.vgg = "../PytorchWCT/models/vgg_normalised_conv4_1.t7" # note that AdaIN only uses up to Conv4_1 layer
-# vgg = net.Encoder4(args.vgg)
+# vgg = net.vgg
+# vgg.load_state_dict(torch.load(args.vgg))
+# vgg = nn.Sequential(*list(vgg.children())[:31])
+
+# 2019-11-13: train the BD for FP-slimmed 16x SE
+decoder = net.decoder
+SE_path = "../Bin/models/normalise_fp16x/fp16x_normalised_FP16x_4E_for_adain.pth" # fp16x_normalised.t7
+vgg = SmallEncoder4_FP16x_aux(SE_path)
 # --------------------------------------------------------------
 network = net.Net(vgg, decoder)
 network.train()
@@ -127,7 +131,6 @@ style_dataset = FlatFolderDataset(args.style_dir, style_tf)
 # content_dataset = Dataset_npy(args.content_dir_npy)
 # style_dataset = Dataset_npy(args.style_dir_npy)
 
-
 content_iter = iter(data.DataLoader(
     content_dataset, batch_size=args.batch_size,
     sampler=InfiniteSamplerWrapper(content_dataset),
@@ -138,6 +141,7 @@ style_iter = iter(data.DataLoader(
     num_workers=args.n_threads))
 
 optimizer = torch.optim.Adam(network.decoder.parameters(), lr=args.lr)
+# optimizer = torch.optim.Adam(network.parameters(), lr=args.lr) # for training FP16x_BD, the SE still has a few params which need update
 
 for i in tqdm(range(args.max_iter)):
     adjust_learning_rate(optimizer, iteration_count=i)
